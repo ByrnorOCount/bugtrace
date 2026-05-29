@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from itertools import cycle
 
+from backend.app.services.payload_types import AnalysisPayload, MatchPayload, SeedCase
 
-MOCK_CASES = [
+
+MOCK_CASES: list[SeedCase] = [
     {
         "title": "Checkout fails after payment token refresh",
         "description": "Customers see a retry loop after their saved card token refreshes during checkout.",
@@ -72,17 +74,17 @@ MOCK_CASES = [
 ]
 
 
-def synthetic_cases(count: int) -> list[dict[str, str]]:
-    cases = []
+def synthetic_cases(count: int) -> list[SeedCase]:
+    cases: list[SeedCase] = []
     for index, base in zip(range(count), cycle(MOCK_CASES), strict=False):
-        clone = dict(base)
+        clone: SeedCase = {**base}
         clone["title"] = f"{base['title']} #{index + 1}"
         clone["test_name"] = f"{base['test_name']}_{index + 1}"
         cases.append(clone)
     return cases
 
 
-def mock_analysis(title: str, matches: list[dict]) -> dict:
+def mock_analysis(title: str, matches: list[MatchPayload]) -> AnalysisPayload:
     best = matches[0]["failure"] if matches else None
     category = best["category"] if best else "unknown"
     return {

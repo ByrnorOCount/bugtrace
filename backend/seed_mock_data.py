@@ -5,9 +5,10 @@ from backend.app.database import SessionLocal, init_db
 from backend.app.models import SeedExample, TestFailure
 from backend.app.services.embeddings import get_embedding_service
 from backend.app.services.gemini import generate_seed_cases
+from backend.app.services.payload_types import SeedCase
 
 
-def failure_text(case: dict) -> str:
+def failure_text(case: SeedCase) -> str:
     return "\n".join(
         [
             case["test_name"],

@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from importlib import import_module
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -16,7 +17,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def init_db() -> None:
-    from . import models  # noqa: F401
+    import_module("backend.app.models")
 
     Base.metadata.create_all(bind=engine)
 

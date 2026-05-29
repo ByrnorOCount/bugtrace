@@ -1,8 +1,16 @@
 import json
-from typing import Any
+import importlib
+from typing import Any, cast
 
 from backend.app.config import get_settings
 from backend.app.services.mock_data import mock_analysis, synthetic_cases
+from backend.app.services.payload_types import (
+    AnalysisPayload,
+    BugPayload,
+    GeminiAnalysisPayload,
+    MatchPayload,
+    SeedCase,
+)
 
 
 ANALYSIS_SCHEMA: dict[str, Any] = {
@@ -71,9 +79,9 @@ def _client():
     if not settings.gemini_api_key:
         return None
     try:
-        from google import genai
-
-        return genai.Client(api_key=settings.gemini_api_key)
+        genai = importlib.import_module("google.genai")
+        client_factory = getattr(genai, "Client")
+        return client_factory(api_key=settings.gemini_api_key)
     except Exception:
         return None
 
@@ -90,7 +98,7 @@ def _parse_json_response(response: Any) -> dict[str, Any]:
     return json.loads(text)
 
 
-def analyze_bug(bug: dict[str, Any], matches: list[dict[str, Any]]) -> dict[str, Any]:
+def analyze_bug(bug: BugPayload, matches: list[MatchPayload]) -> AnalysisPayload:
     settings = get_settings()
     client = _client()
     if client is None:
@@ -98,7 +106,7 @@ def analyze_bug(bug: dict[str, Any], matches: list[dict[str, Any]]) -> dict[str,
             return mock_analysis(bug["title"], matches)
         raise RuntimeError("Gemini client is unavailable and mock fallback is disabled")
 
-    prompt = {
+    prompt: dict[str, str | BugPayload | list[MatchPayload]] = {
         "instruction": "Analyze the customer bug against matched CI failures. Return strict JSON only.",
         "customer_bug": bug,
         "matched_failures": matches,
@@ -113,16 +121,16 @@ def analyze_bug(bug: dict[str, Any], matches: list[dict[str, Any]]) -> dict[str,
                 "temperature": 0.2,
             },
         )
-        data = _parse_json_response(response)
+        data = cast(GeminiAnalysisPayload, _parse_json_response(response))
         data["used_fallback"] = False
-        return data
+        return cast(AnalysisPayload, data)
     except Exception:
         if settings.enable_mock_fallback:
             return mock_analysis(bug["title"], matches)
         raise
 
 
-def generate_seed_cases(count: int) -> list[dict[str, Any]]:
+def generate_seed_cases(count: int) -> list[SeedCase]:
     settings = get_settings()
     client = _client()
     if client is None:
@@ -145,7 +153,7 @@ def generate_seed_cases(count: int) -> list[dict[str, Any]]:
             },
         )
         data = _parse_json_response(response)
-        cases = data.get("cases", [])
+        cases = cast(list[SeedCase], data.get("cases", []))
         return cases[:count] if len(cases) >= count else cases + synthetic_cases(count - len(cases))
     except Exception:
         if settings.enable_mock_fallback:

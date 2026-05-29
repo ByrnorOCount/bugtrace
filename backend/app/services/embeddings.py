@@ -1,6 +1,7 @@
 import hashlib
 import math
 from functools import lru_cache
+from typing import Any, cast
 
 from backend.app.config import get_settings
 
@@ -17,10 +18,10 @@ class EmbeddingService:
         try:
             from sentence_transformers import SentenceTransformer
 
-            self._model = SentenceTransformer(
-                self.settings.embedding_model,
-                local_files_only=not self.settings.embedding_allow_download,
-            )
+            model_options: dict[str, Any] = {
+                "local_files_only": not self.settings.embedding_allow_download
+            }
+            self._model = SentenceTransformer(self.settings.embedding_model, **model_options)
         except Exception as exc:
             self._load_error = str(exc)
         return self._model
@@ -33,7 +34,7 @@ class EmbeddingService:
         clean_text = " ".join(text.split())
         model = self._load_model()
         if model is not None:
-            vector = model.encode(clean_text, normalize_embeddings=True)
+            vector = cast(Any, model.encode(clean_text, normalize_embeddings=True))
             return [float(value) for value in vector.tolist()]
         return self._fallback_embedding(clean_text)
 

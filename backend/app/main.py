@@ -19,6 +19,7 @@ from backend.app.schemas import (
 )
 from backend.app.services.embeddings import get_embedding_service
 from backend.app.services.gemini import analyze_bug
+from backend.app.services.payload_types import BugPayload, FailurePayload, MatchPayload
 from backend.app.services.similarity import find_top_matches
 
 
@@ -48,11 +49,11 @@ def _bug_text(payload: BugCreate) -> str:
     )
 
 
-def _failure_payload(failure: TestFailure) -> dict[str, Any]:
-    return TestFailureOut.model_validate(failure).model_dump()
+def _failure_payload(failure: TestFailure) -> FailurePayload:
+    return FailurePayload(**TestFailureOut.model_validate(failure).model_dump())
 
 
-def _match_payload(matches: list[tuple[TestFailure, float]]) -> list[dict[str, Any]]:
+def _match_payload(matches: list[tuple[TestFailure, float]]) -> list[MatchPayload]:
     return [
         {"score": round(float(score), 4), "failure": _failure_payload(failure)}
         for failure, score in matches
@@ -76,16 +77,14 @@ def create_bug(payload: BugCreate, db: Session = Depends(get_db)) -> BugDetailOu
     top_matches = find_top_matches(db, embedding, limit=5)
     matches = _match_payload(top_matches)
 
-    analysis = analyze_bug(
-        {
+    bug_payload: BugPayload = {
             "title": payload.title,
             "description": payload.description,
             "stack_trace": payload.stack_trace,
             "severity": payload.severity,
             "environment": payload.environment,
-        },
-        matches,
-    )
+    }
+    analysis = analyze_bug(bug_payload, matches)
 
     bug = CustomerBug(
         title=payload.title,
@@ -106,7 +105,10 @@ def create_bug(payload: BugCreate, db: Session = Depends(get_db)) -> BugDetailOu
     return BugDetailOut(
         bug=BugOut.model_validate(bug),
         analysis=AnalysisOut(**analysis),
-        matches=[MatchOut(score=item["score"], failure=item["failure"]) for item in matches],
+        matches=[
+            MatchOut(score=item["score"], failure=TestFailureOut(**item["failure"]))
+            for item in matches
+        ],
     )
 
 

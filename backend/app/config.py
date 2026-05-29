@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "bugtrace"
-    database_url: str = Field(..., alias="DATABASE_URL")
+    database_url: str = Field(default="", alias="DATABASE_URL")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     seed_record_count: int = Field(default=50, alias="SEED_RECORD_COUNT")
     enable_mock_fallback: bool = Field(default=True, alias="ENABLE_MOCK_FALLBACK")
